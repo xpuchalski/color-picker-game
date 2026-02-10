@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Color Guessing Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Color Guessing Game</h1>
+      <marquee behavior="scroll" direction="left"></marquee>
+    </header>
+
+    <main>
+      <article class="project">
+        <div class="tutorial-section">
+          <h3>How to Play</h3>
+          <div id="tutorialContent" class="tutorial-content">
+            <p>tips : <br> - hex codes are broken up in 4 parts, # rr gg bb <br> - for each pair of values (rr for example) the first bit is 16*1*number(0-f) the second bit is 16*0*num(0-f) <br> - gray colors are denoted by having all 3 values close or the same value <br> - if you know decimal rgb values (0-255), you can think of hexidecimal the same way <br> - red = #ff0000, green = #00ff00, blue is #0000ff <br> - lighter colors have higher values (closer to f) while darker have lower (closer to 0)</p>
+          </div>
+        </div>
+        
+        <div class="game-container">
+          <!-- Target Color Rectangle -->
+          <div class="color-section">
+            <div class="color-box" id="targetColor"></div>
+            <p class="label">Target Color</p>
+          </div>
+
+          <!-- Game Controls -->
+          <div class="controls-section">
+            <div class="input-group">
+              <label for="hexInput">Enter Hex Code:</label>
+              <input 
+                type="text" 
+                id="hexInput" 
+                placeholder="#FF0000"
+                maxlength="7"
+              >
+            </div>
+
+            <div class="button-group">
+              <button id="submitBtn" class="btn">Submit</button>
+              <button id="revealBtn" class="btn btn-secondary">Reveal</button>
+              <button id="rerollBtn" class="btn btn-secondary">Reroll</button>
+            </div>
+
+            <div id="resultDisplay" class="result-display">
+              <div id="resultMessage"></div>
+              <div id="comparisonStats"></div>
+            </div>
+          </div>
+
+          <!-- Submitted Color Rectangle -->
+          <div class="color-section">
+            <div class="color-box" id="submittedColor"></div>
+            <p class="label">Your Guess</p>
+          </div>
+        </div>
+      </article>
+    </main>
+  </div>
+
+  <script>
+    class ColorGuessingGame {
+      constructor() {
+        this.targetColor = this.generateRandomColor();
+        this.submittedColor = null;
+        this.revealed = false;
+
+        this.targetColorEl = document.getElementById('targetColor');
+        this.submittedColorEl = document.getElementById('submittedColor');
+        this.hexInput = document.getElementById('hexInput');
+        this.submitBtn = document.getElementById('submitBtn');
+        this.revealBtn = document.getElementById('revealBtn');
+        this.rerollBtn = document.getElementById('rerollBtn');
+        this.resultMessage = document.getElementById('resultMessage');
+        this.comparisonStats = document.getElementById('comparisonStats');
+
+        this.setupEventListeners();
+        this.renderTargetColor();
+      }
+
+      generateRandomColor() {
+        const r = Math.floor(Math.random() * 256);
+        const g = Math.floor(Math.random() * 256);
+        const b = Math.floor(Math.random() * 256);
+        return { r, g, b };
+      }
+
+      rgbToHex(r, g, b) {
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+      }
+
+      hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16)
+        } : null;
+      }
+
+      calculateSimilarity(color1, color2) {
+        // Calculate the percentage match for each channel
+        const rPercent = (color1.r / 255) * 100;
+        const gPercent = (color1.g / 255) * 100;
+        const bPercent = (color1.b / 255) * 100;
+
+        const targetRPercent = (color2.r / 255) * 100;
+        const targetGPercent = (color2.g / 255) * 100;
+        const targetBPercent = (color2.b / 255) * 100;
+
+        // Calculate difference
+        const rDiff = Math.abs(rPercent - targetRPercent);
+        const gDiff = Math.abs(gPercent - targetGPercent);
+        const bDiff = Math.abs(bPercent - targetBPercent);
+
+        // Overall accuracy (0-100%)
+        const avgDiff = (rDiff + gDiff + bDiff) / 3;
+        const accuracy = Math.max(0, 100 - avgDiff);
+
+        return {
+          rPercent: rPercent.toFixed(2),
+          gPercent: gPercent.toFixed(2),
+          bPercent: bPercent.toFixed(2),
+          targetRPercent: targetRPercent.toFixed(2),
+          targetGPercent: targetGPercent.toFixed(2),
+          targetBPercent: targetBPercent.toFixed(2),
+          accuracy: accuracy.toFixed(2)
+        };
+      }
+
+      setupEventListeners() {
+        this.submitBtn.addEventListener('click', () => this.handleSubmit());
+        this.revealBtn.addEventListener('click', () => this.handleReveal());
+        this.rerollBtn.addEventListener('click', () => this.handleReroll());
+        this.hexInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') this.handleSubmit();
+        });
+      }
+
+      handleSubmit() {
+        const hexValue = this.hexInput.value.trim();
+        
+        if (!hexValue.match(/^#[0-9A-Fa-f]{6}$/)) {
+          this.resultMessage.textContent = 'Please enter a valid hex code (e.g., #FF0000)';
+          this.resultMessage.style.color = '#e74c3c';
+          return;
+        }
+
+        this.submittedColor = this.hexToRgb(hexValue);
+        this.submittedColorEl.style.backgroundColor = hexValue;
+
+        const similarity = this.calculateSimilarity(this.submittedColor, this.targetColor);
+        
+        if (similarity.accuracy >= 95) {
+          this.resultMessage.textContent = 'Perfect Match!';
+          this.resultMessage.style.color = '#27ae60';
+        } else if (similarity.accuracy >= 75) {
+          this.resultMessage.textContent = 'Great guess!';
+          this.resultMessage.style.color = '#f39c12';
+        } else if (similarity.accuracy >= 50) {
+          this.resultMessage.textContent = 'Getting closer...';
+          this.resultMessage.style.color = '#3498db';
+        } else {
+          this.resultMessage.textContent = 'Try again!';
+          this.resultMessage.style.color = '#e74c3c';
+        }
+
+        this.displayComparison(similarity);
+      }
+
+      displayComparison(similarity) {
+        this.comparisonStats.innerHTML = `
+          <div class="stats">
+            <div class="stat-row">
+              <span>Accuracy:</span>
+              <strong>${similarity.accuracy}%</strong>
+            </div>
+          </div>
+        `;
+      }
+
+      handleReveal() {
+        const hexValue = this.rgbToHex(this.targetColor.r, this.targetColor.g, this.targetColor.b);
+        this.hexInput.value = hexValue;
+        this.handleSubmit();
+        this.revealed = true;
+      }
+
+      handleReroll() {
+        this.targetColor = this.generateRandomColor();
+        this.submittedColor = null;
+        this.revealed = false;
+        this.hexInput.value = '';
+        this.resultMessage.textContent = '';
+        this.comparisonStats.innerHTML = '';
+        this.submittedColorEl.style.backgroundColor = '#f0f0f0';
+        this.renderTargetColor();
+      }
+
+      renderTargetColor() {
+        const hexValue = this.rgbToHex(this.targetColor.r, this.targetColor.g, this.targetColor.b);
+        this.targetColorEl.style.backgroundColor = hexValue;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new ColorGuessingGame();
+    });
+  </script>
+</body>
+</html>
